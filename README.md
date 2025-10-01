@@ -1,0 +1,391 @@
+
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Powerlifting Tycoon</title>
+<style>
+  /* Your entire CSS from original code here */
+  @import url('https://fonts.googleapis.com/css2?family=Inter&display=swap');
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    background: linear-gradient(180deg, #071025 0%, #0c1320 100%);
+    color: #e6eef6;
+    margin: 0;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 330px 1fr;
+    gap: 20px;
+    max-width: 1100px;
+    margin-left: auto;
+    margin-right: auto;
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
+  /* ... rest of your CSS ... */
+  /* (Paste all your CSS from the original here exactly) */
+  /* For brevity, omitted here but you would copy all your CSS rules exactly */
+</style>
+</head>
+<body>
+
+<!-- Paste your entire original HTML body code here -->
+
+<!-- Left Panel -->
+<div id="leftPanel">
+  <div>
+    <div style="font-size:36px;">🏋️‍♂️</div>
+    <div>
+      <h1>Powerlifting Tycoon</h1>
+      <div class="subtitle">Train, buy gear, hire a coach, and become legendary</div>
+    </div>
+  </div>
+
+  <hr />
+
+  <div id="stats">
+    <div class="flex-between">
+      <div class="stat-block">
+        <div>Strength</div>
+        <div id="strength" class="stat-value">0</div>
+        <div class="stat-desc">Strength points represent your lifting progress</div>
+      </div>
+      <div class="stat-block" style="text-align:right;">
+        <div>Rep Points</div>
+        <div id="rep" class="stat-value">0</div>
+        <div class="stat-desc">Prestige currency (from Competing)</div>
+      </div>
+    </div>
+
+    <div id="trainSection">
+      <button id="trainBtn">Train +1</button>
+      <div id="gpsDisplay">0 / sec</div>
+    </div>
+
+    <div id="progressContainer">
+      <div>Training Progress</div>
+      <div id="progBarContainer"><i id="progBar"></i></div>
+    </div>
+
+    <div id="saveLoadReset">
+      <button id="saveBtn">Save</button>
+      <button id="loadBtn">Load</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+
+    <div id="message" style="margin-top: 12px; color:#f97316;"></div>
+  </div>
+
+  <footer>
+    Tip: Train manually or buy gear to increase your GPS (Gain Per Second)!<br/>
+    Press "Compete" when ready to prestige and earn Rep Points!
+  </footer>
+</div>
+
+<!-- Right Panel -->
+<div id="rightPanel">
+  <div class="card" id="shopCard">
+    <div id="shopHeader">Shop: Equipment & Gear</div>
+    <div id="shopList" title="Buy items to increase your GPS"></div>
+  </div>
+
+  <div class="card" id="upgradesCard">
+    <div id="upgradesHeader" style="color:#99a3b2; font-weight:600; user-select:none;">
+      Upgrades & Training Enhancements
+    </div>
+    <div id="upgrades" title="Buy upgrades to boost your training"></div>
+  </div>
+
+  <div class="card" id="statsCard">
+    <div class="title">Session & Career Stats</div>
+    <div class="stats-container">
+      <div class="stat-box">
+        <div>Total Training Sessions</div>
+        <div id="totalTrains" class="value">0</div>
+      </div>
+      <div class="stat-box">
+        <div>Best Session Gain</div>
+        <div id="bestSession" class="value">0</div>
+      </div>
+      <div class="stat-box">
+        <div>Level</div>
+        <div id="level" class="value">1</div>
+      </div>
+    </div>
+
+    <button id="competeBtn" title="Reset progress for Rep Points & boost gains">Compete (Prestige)</button>
+  </div>
+</div>
+
+<script>
+  // Paste your entire JavaScript here, but:
+  // 1. Replace all alert(...) calls with setting text in #message div.
+  // 2. Make sure all functions are exactly the same.
+
+  // Example change for alert:
+  function showMessage(msg) {
+    const messageDiv = document.getElementById('message');
+    messageDiv.textContent = msg;
+    setTimeout(() => { messageDiv.textContent = ''; }, 5000);
+  }
+
+  // Initial state
+  const state = {
+    strength: 0,
+    money: 0,
+    rep: 0,
+    gps: 0,
+    level: 1,
+    totalTrains: 0,
+    bestSession: 0,
+    sessionGain: 0,
+    prestigeMultiplier: 1,
+    prestigeRequirement: 100,
+    lastTick: Date.now(),
+  };
+
+  const baseItems = [
+    {id:'barbell', name:'Barbell', cost:50, gps:1, qty:0, desc:'Basic barbell to start training'},
+    {id:'weightPlates', name:'Weight Plates', cost:250, gps:5, qty:0, desc:'Add weight plates to increase gain per second'},
+    {id:'liftingBelt', name:'Lifting Belt', cost:1000, gps:15, qty:0, desc:'Supports your lifts, increasing GPS'},
+    {id:'wristWraps', name:'Wrist Wraps', cost:3000, gps:40, qty:0, desc:'Stabilize wrists, improving gains'},
+    {id:'liftingShoes', name:'Lifting Shoes', cost:12000, gps:100, qty:0, desc:'Improve form and stability'},
+    {id:'chalk', name:'Chalk', cost:50000, gps:250, qty:0, desc:'Better grip increases efficiency'},
+    {id:'powerRack', name:'Power Rack', cost:120000, gps:550, qty:0, desc:'Train safely and heavier'},
+    {id:'benchPress', name:'Bench Press', cost:450000, gps:1200, qty:0, desc:'Boost chest and triceps gains'},
+    {id:'deadliftPlatform', name:'Deadlift Platform', cost:1000000, gps:2500, qty:0, desc:'Perfect setup for deadlifts'},
+  ];
+
+  const baseUpgrades = [
+    {id:'technique', name:'Improve Technique', emoji:'💪', cost:500, effect:()=>state.gps *= 1.5, desc:'Increase all GPS by 50% (one-time)', bought:false},
+    {id:'gearmod', name:'Optimize Gear', emoji:'⚙️', cost:2500, effect:()=>state.gps += 5, desc:'Add flat +5 GPS', bought:false},
+    {id:'supps', name:'Advanced Supplements', emoji:'💊', cost:10000, effect:()=>state.gps *= 2, desc:'Double all GPS', bought:false},
+    {id:'nutrition', name:'Nutrition Plan', emoji:'🥗', cost:15000, effect:()=>state.prestigeMultiplier += 0.2, desc:'Increase prestige multiplier by 0.2', bought:false},
+    {id:'mental', name:'Mental Conditioning', emoji:'🧠', cost:20000, effect:()=>state.strength += 100, desc:'Instant +100 Strength', bought:false},
+    {id:'equipmentUpgrade', name:'Elite Equipment', emoji:'🏋️‍♀️', cost:50000, effect:()=>state.gps *= 3, desc:'Triple all GPS', bought:false},
+    {id:'advancedCoach', name:'Hire Elite Coach', emoji:'🎓', cost:75000, effect:()=>state.gps += 50, desc:'Add +50 GPS', bought:false},
+    {id:'specialProgram', name:'Special Training Program', emoji:'🔥', cost:100000, effect:()=>state.prestigeMultiplier += 1, desc:'Increase prestige multiplier by 1', bought:false},
+  ];
+
+  // Save and load functions
+  function saveGame() {
+    const saveData = {
+      strength: state.strength,
+      rep: state.rep,
+      gps: state.gps,
+      level: state.level,
+      totalTrains: state.totalTrains,
+      bestSession: state.bestSession,
+      sessionGain: state.sessionGain,
+      prestigeMultiplier: state.prestigeMultiplier,
+      prestigeRequirement: state.prestigeRequirement,
+      items: baseItems,
+      upgrades: baseUpgrades.map(u => ({id:u.id, bought:u.bought})),
+    };
+    localStorage.setItem('powerliftingSave', JSON.stringify(saveData));
+    showMessage('Game saved!');
+  }
+
+  function loadGame() {
+    const data = localStorage.getItem('powerliftingSave');
+    if (!data) {
+      showMessage('No save found.');
+      return;
+    }
+    try {
+      const saveData = JSON.parse(data);
+      state.strength = saveData.strength || 0;
+      state.rep = saveData.rep || 0;
+      state.gps = saveData.gps || 0;
+      state.level = saveData.level || 1;
+      state.totalTrains = saveData.totalTrains || 0;
+      state.bestSession = saveData.bestSession || 0;
+      state.sessionGain = saveData.sessionGain || 0;
+      state.prestigeMultiplier = saveData.prestigeMultiplier || 1;
+      state.prestigeRequirement = saveData.prestigeRequirement || 100;
+      if (saveData.items) {
+        saveData.items.forEach((savedItem) => {
+          const item = baseItems.find(i => i.id === savedItem.id);
+          if (item) item.qty = savedItem.qty || 0;
+        });
+      }
+      if (saveData.upgrades) {
+        saveData.upgrades.forEach(savedUpgrade => {
+          const upgrade = baseUpgrades.find(u => u.id === savedUpgrade.id);
+          if (upgrade) upgrade.bought = savedUpgrade.bought || false;
+        });
+      }
+      showMessage('Game loaded!');
+      updateAll();
+    } catch {
+      showMessage('Failed to load save data.');
+    }
+  }
+
+  function resetGame() {
+    if (confirm('Are you sure you want to reset? All progress will be lost.')) {
+      localStorage.removeItem('powerliftingSave');
+      location.reload();
+    }
+  }
+
+  // Update UI function
+  function updateAll() {
+    document.getElementById('strength').textContent = Math.floor(state.strength);
+    document.getElementById('rep').textContent = Math.floor(state.rep);
+    document.getElementById('gpsDisplay').textContent = state.gps.toFixed(1) + ' / sec';
+    document.getElementById('totalTrains').textContent = state.totalTrains;
+    document.getElementById('bestSession').textContent = state.bestSession;
+    document.getElementById('level').textContent = state.level;
+
+    // Update progress bar width
+    let progressPercent = Math.min(100, (state.strength / state.prestigeRequirement) * 100);
+    document.getElementById('progBar').style.width = progressPercent + '%';
+
+    // Update shop items list
+    const shopList = document.getElementById('shopList');
+    shopList.innerHTML = '';
+    baseItems.forEach(item => {
+      let itemElem = document.createElement('div');
+      itemElem.className = 'shop-item';
+      itemElem.title = item.desc;
+      itemElem.innerHTML = `<div>${item.name} x${item.qty}</div><div>${item.cost} Strength</div>`;
+      itemElem.onclick = () => buyItem(item.id);
+      shopList.appendChild(itemElem);
+    });
+
+    // Update upgrades list
+    const upgradesDiv = document.getElementById('upgrades');
+    upgradesDiv.innerHTML = '';
+    baseUpgrades.forEach(upg => {
+      if (!upg.bought) {
+        let upgElem = document.createElement('div');
+        upgElem.className = 'upgrade-item';
+        upgElem.title = upg.desc;
+        upgElem.textContent = `${upg.emoji} ${upg.name} - ${upg.cost} Strength`;
+        upgElem.onclick = () => buyUpgrade(upg.id);
+        upgradesDiv.appendChild(upgElem);
+      }
+    });
+  }
+
+  // Buy item
+  function buyItem(id) {
+    const item = baseItems.find(i => i.id === id);
+    if (!item) return;
+    if (state.strength >= item.cost) {
+      state.strength -= item.cost;
+      item.qty++;
+      recalcGPS();
+      updateAll();
+      showMessage(`Bought 1 ${item.name}!`);
+    } else {
+      showMessage('Not enough Strength!');
+    }
+  }
+
+  // Buy upgrade
+  function buyUpgrade(id) {
+    const upgrade = baseUpgrades.find(u => u.id === id);
+    if (!upgrade || upgrade.bought) return;
+    if (state.strength >= upgrade.cost) {
+      state.strength -= upgrade.cost;
+      upgrade.bought = true;
+      upgrade.effect();
+      updateAll();
+      showMessage(`Bought upgrade: ${upgrade.name}!`);
+    } else {
+      showMessage('Not enough Strength!');
+    }
+  }
+
+  // Recalculate GPS from items and upgrades
+  function recalcGPS() {
+    let baseGPS = 0;
+    baseItems.forEach(item => {
+      baseGPS += item.gps * item.qty;
+    });
+    // Reset upgrades and recalc to avoid stacking effect issues
+    let tempGPS = baseGPS;
+    baseUpgrades.forEach(upg => {
+      if (upg.bought) {
+        if (upg.id === 'technique') tempGPS *= 1.5;
+        if (upg.id === 'gearmod') tempGPS += 5;
+        if (upg.id === 'supps') tempGPS *= 2;
+        if (upg.id === 'equipmentUpgrade') tempGPS *= 3;
+        if (upg.id === 'advancedCoach') tempGPS += 50;
+      }
+    });
+    state.gps = tempGPS * state.prestigeMultiplier;
+  }
+
+  // Train function (manual click)
+  function train() {
+    state.strength += 1 * state.prestigeMultiplier;
+    state.sessionGain += 1 * state.prestigeMultiplier;
+    state.totalTrains++;
+    if (state.sessionGain > state.bestSession) state.bestSession = Math.floor(state.sessionGain);
+    if (state.strength >= state.prestigeRequirement) {
+      // Ready to prestige
+      document.getElementById('competeBtn').style.backgroundColor = '#ff8800';
+    }
+    updateAll();
+  }
+
+  // Compete (Prestige)
+  function compete() {
+    if (state.strength < state.prestigeRequirement) {
+      showMessage(`Need ${state.prestigeRequirement} Strength to compete!`);
+      return;
+    }
+    // Gain Rep Points based on level and prestigeMultiplier
+    let repGain = Math.floor(state.level * state.prestigeMultiplier);
+    state.rep += repGain;
+    // Reset main stats
+    state.strength = 0;
+    state.sessionGain = 0;
+    state.totalTrains = 0;
+    state.level++;
+    state.prestigeRequirement *= 1.5;
+    state.gps = 0;
+    // Reset items and upgrades
+    baseItems.forEach(item => (item.qty = 0));
+    baseUpgrades.forEach(upg => (upg.bought = false));
+    updateAll();
+    showMessage(`Competed and earned ${repGain} Rep Points!`);
+    document.getElementById('competeBtn').style.backgroundColor = '';
+  }
+
+  // Auto GPS gain every second
+  function tick() {
+    let now = Date.now();
+    let delta = (now - state.lastTick) / 1000;
+    state.lastTick = now;
+    state.strength += state.gps * delta;
+    state.sessionGain += state.gps * delta;
+    if (state.sessionGain > state.bestSession) state.bestSession = Math.floor(state.sessionGain);
+    if (state.strength >= state.prestigeRequirement) {
+      document.getElementById('competeBtn').style.backgroundColor = '#ff8800';
+    }
+    updateAll();
+  }
+
+  // Event listeners
+  document.getElementById('trainBtn').onclick = train;
+  document.getElementById('competeBtn').onclick = compete;
+  document.getElementById('saveBtn').onclick = saveGame;
+  document.getElementById('loadBtn').onclick = loadGame;
+  document.getElementById('resetBtn').onclick = resetGame;
+
+  // Start tick loop
+  state.lastTick = Date.now();
+  setInterval(tick, 1000);
+
+  // Initial update
+  updateAll();
+
+</script>
+</body>
+</html>
